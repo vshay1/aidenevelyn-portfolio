@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/frontend/css/admin_dashboard.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <div>
+                <h1>Admin Dashboard</h1>
+                <div class="user">Welcome, {{ username }}</div>
+            </div>
+            <a href="/admin/logout" class="logout-btn">Logout</a>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Total Projects</div>
+                <div class="value">{{ total_projects }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Writings</div>
+                <div class="value">{{ total_writings }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Artworks</div>
+                <div class="value">{{ total_arts }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Gallery Photos</div>
+                <div class="value">{{ total_gallery_photos }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Page Visits</div>
+                <div class="value">{{ total_visits }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Admin Users</div>
+                <div class="value">{{ total_admins }}</div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="grid-2">
+            <div class="panel-section">
+                <h2>Recent Admin Sessions</h2>
+                <div class="content">
+                    <div class="session-list">
+                        {% for session in recent_sessions %}
+                        <div class="session-item">
+                            <span class="ip">{{ session.ip_address }}</span>
+                            <span class="time">{{ session.login_time.strftime('%Y-%m-%d %H:%M') }}</span>
+                            {% if session.logout_time %}
+                            <span style="opacity: 0.3; font-size: 11px;">
+                                Duration: {{ ((session.logout_time - session.login_time).total_seconds() // 60)|int }}m
+                            </span>
+                            {% else %}
+                            <span class="badge badge-active">Active</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h2>Recent Page Visits</h2>
+                <div class="content">
+                    <div class="visit-list">
+                        {% for visit in recent_visits %}
+                        <div class="visit-item">
+                            <span class="page">{{ visit.page_url }}</span>
+                            <span class="time">{{ visit.visit_time.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="panel-section">
+            <h2>Quick Actions</h2>
+            <div class="content" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    ✏️ Add Project
+                </a>
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    ✍️ Add Writing
+                </a>
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    🎨 Add Artwork
+                </a>
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    🖼️ Add Gallery Photo
+                </a>
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    📊 View Analytics
+                </a>
+                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                    👥 Manage Admins
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

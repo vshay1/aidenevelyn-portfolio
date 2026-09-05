@@ -1,0 +1,25 @@
+
+@font-face{
+  font-family: 'Sage';
+  src: url('../resources/font/Sage/Sage.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+*{
+    font-family: 'Sage', sans-serif;
+    user-select: none;
+}
+:root{
+  --background-color: rgb(14,13,14);
+  --border-accent-color: rgb(47, 41, 37);
+  --header-color: rgb(86,82,68);
+  --description-background-color: rgb(74,58,48);
+  --disclaimer-background-color: linear-gradient(135deg, #773344, #d44d5c);
+  --list-background-color: rgb(245, 233, 205);
+  --list-item-border-color: rgb(56, 52, 51);
+  --disclaimer-text-color: #f5e9e2;
+  --text-light-color: rgb(161, 135,122);
+  --text-dark-color: rgb(142, 128, 100);
+}
