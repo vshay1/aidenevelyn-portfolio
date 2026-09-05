@@ -1,4 +1,3 @@
-
 {
   "builds": [
     {
@@ -14,6 +13,18 @@
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/frontend/main_page.html"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/frontend/favicon.svg"
+    },
+    {
+      "src": "/favicon.png",
+      "dest": "/frontend/favicon.svg"
     },
     {
       "src": "/(.*)",
