@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
     <link rel="stylesheet" href="/frontend/css/admin_dashboard.css">
+    <link rel="icon" type="image/svg+xml" href="/frontend/favicon.svg">
 </head>
 <body>
     <div class="dashboard">
@@ -13,7 +14,7 @@
                 <h1>Admin Dashboard</h1>
                 <div class="user">Welcome, {{ username }}</div>
             </div>
-            <a href="/admin/logout" class="logout-btn">Logout</a>
+            <a href="/api/admin/logout" class="logout-btn">Logout</a>
         </div>
         
         <!-- Stats Grid -->
@@ -86,22 +87,22 @@
         <div class="panel-section">
             <h2>Quick Actions</h2>
             <div class="content" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/add-project" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     ✏️ Add Project
                 </a>
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/add-writing" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     ✍️ Add Writing
                 </a>
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/add-artwork" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     🎨 Add Artwork
                 </a>
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/add-gallery" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     🖼️ Add Gallery Photo
                 </a>
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/analytics" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     📊 View Analytics
                 </a>
-                <a href="#" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
+                <a href="/api/admin/manage-admins" style="color: rgb(200, 184, 161); text-decoration: none; padding: 8px 16px; border: 1px solid rgba(200, 184, 161, 0.2); border-radius: 4px; transition: all 0.3s ease;">
                     👥 Manage Admins
                 </a>
             </div>
