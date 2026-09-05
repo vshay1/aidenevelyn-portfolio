@@ -1,7 +1,5 @@
-cd /Users/aidenevelyn/Documents/Project/probable-octo-winner/backend
-cat > app.py << 'EOF'
 # -*- coding: utf-8 -*-
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, abort
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, abort, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,9 +10,31 @@ from functools import wraps
 from dotenv import load_dotenv
 import os
 
+
 load_dotenv()
 
-app = Flask(__name__)
+
+# === TELL FLASK WHERE TO FIND TEMPLATES AND STATIC FILES ===
+app = Flask(__name__,
+    template_folder='templates',
+    static_folder='../frontend',
+    static_url_path='/frontend'
+)
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
+# === ADD ROUTES FOR RESOURCES ===
+@app.route('/resources/<path:filename>')
+def serve_resources(filename):
+    """Serve resources from the frontend/resources folder"""
+    return send_from_directory(os.path.join('..', 'frontend', 'resources'), filename)
+
+@app.route('/frontend/<path:filename>')
+def serve_frontend(filename):
+    """Serve frontend files"""
+    return send_from_directory('..', 'frontend', filename)
 
 # === CONFIGURATION ===
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(32))
@@ -49,6 +69,9 @@ class Admin(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def __repr__(self):
+        return '<Admin {}>'.format(self.username)
 
 class SecretKey(db.Model):
     __tablename__ = 'secret_keys'
@@ -61,11 +84,15 @@ class SecretKey(db.Model):
     created_by = db.Column(db.Integer)
     
     def is_valid(self):
+        """Check if the key is active and not expired"""
         if not self.is_active:
             return False
         if self.expires_at and self.expires_at < datetime.utcnow():
             return False
         return True
+    
+    def __repr__(self):
+        return '<SecretKey {}>'.format(self.id)
 
 class AdminSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,6 +118,32 @@ class Project(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     order = db.Column(db.Integer, default=0)
 
+class Writing(db.Model):
+    __tablename__ = 'writings'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50))
+    status = db.Column(db.String(20), default='published')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Art(db.Model):
+    __tablename__ = 'arts'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    image_url = db.Column(db.String(200))
+    category = db.Column(db.String(50))
+    year = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Gallery(db.Model):
+    __tablename__ = 'gallery'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200))
+    image_url = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class PageVisit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     page_url = db.Column(db.String(200))
@@ -102,19 +155,43 @@ class PageVisit(db.Model):
 
 # === CREATE TABLES ===
 with app.app_context():
-    try:
-        db.create_all()
-        print("Tables created/verified!")
-    except Exception as e:
-        print("Database error (app will continue): {}".format(e))
+    db.create_all()
+    print("Tables created/verified!")
+    print("Connected to database: " + str(app.config['SQLALCHEMY_DATABASE_URI']))
 
 # === FLASK-LOGIN ===
 @login_manager.user_loader
 def load_user(user_id):
-    try:
-        return Admin.query.get(int(user_id))
-    except:
-        return None
+    return Admin.query.get(int(user_id))
+
+@app.before_request
+def check_session_timeout():
+    if current_user.is_authenticated:
+        last_activity = session.get('last_activity')
+        if last_activity and time.time() - last_activity > 3600:
+            logout_user()
+            session.clear()
+            return redirect('/')
+        session['last_activity'] = time.time()
+
+# Simple rate limiting for login attempts
+login_attempts = {}
+
+@app.before_request
+def rate_limit():
+    if request.endpoint == 'admin_login':
+        ip = request.remote_addr
+        now = time.time()
+        if ip in login_attempts:
+            attempts, first_attempt = login_attempts[ip]
+            if attempts >= 5 and now - first_attempt < 300:
+                return jsonify({"error": "Too many attempts"}), 429
+            elif now - first_attempt > 300:
+                login_attempts[ip] = (1, now)
+            else:
+                login_attempts[ip] = (attempts + 1, first_attempt)
+        else:
+            login_attempts[ip] = (1, now)
 
 # === DECORATORS ===
 def admin_required(f):
@@ -127,6 +204,7 @@ def admin_required(f):
 
 # === GENERATE ONE-TIME TOKEN ===
 def generate_admin_slug():
+    """Generate a unique, one-time admin slug"""
     slug = secrets.token_urlsafe(32)
     session['admin_slug'] = slug
     session['admin_slug_created'] = time.time()
@@ -134,22 +212,28 @@ def generate_admin_slug():
     return slug
 
 def validate_admin_slug(slug):
+    """Validate if the slug is valid and not expired"""
     stored_slug = session.get('admin_slug')
     created_at = session.get('admin_slug_created', 0)
     used = session.get('admin_slug_used', False)
     
     if not stored_slug or slug != stored_slug:
         return False
+    
     if used:
         return False
+    
     if time.time() - created_at > 60:
         return False
+    
     return True
 
 def mark_slug_used():
+    """Mark the current slug as used (prevents reuse)"""
     session['admin_slug_used'] = True
 
 def destroy_admin_slug():
+    """Destroy the current admin slug"""
     session.pop('admin_slug', None)
     session.pop('admin_slug_created', None)
     session.pop('admin_slug_used', None)
@@ -158,71 +242,126 @@ def destroy_admin_slug():
 
 @app.route('/')
 def home():
+    track_visit(request, '/')
     return render_template('main_page.html')
 
 @app.route('/<page_name>.html')
 def serve_static_page(page_name):
     allowed_pages = ['main_page', 'projects', 'art', 'gallery', 'writing', 'login']
     if page_name in allowed_pages:
+        track_visit(request, '/{}'.format(page_name))
+        
+        if page_name == 'projects':
+            projects = Project.query.order_by(Project.order).all()
+            return render_template('projects.html', projects=projects)
+        
         return render_template('{}.html'.format(page_name))
     abort(404)
+
+def track_visit(request, page_url):
+    try:
+        visit = PageVisit(
+            page_url=page_url,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent', '')[:200],
+            referrer=request.headers.get('Referer', '')[:200],
+            session_id=request.cookies.get('session', '')
+        )
+        db.session.add(visit)
+        db.session.commit()
+    except Exception as e:
+        print("Error tracking visit: {}".format(e))
+        db.session.rollback()
 
 # === SECRET KEY VERIFICATION ===
 
 def get_active_secret_keys():
+    """Get all active secret keys from the database"""
     try:
         keys = SecretKey.query.filter_by(is_active=True).all()
         valid_keys = [key.key_string for key in keys if key.is_valid()]
-        return valid_keys if valid_keys else ["supercalifragilisticexpialidocious12345"]
-    except:
+        return valid_keys
+    except Exception as e:
+        print("Error fetching secret keys: {}".format(e))
         return ["supercalifragilisticexpialidocious12345"]
 
 @app.route('/api/verify-keystroke', methods=['POST'])
 def verify_keystroke():
+    """Verify each keystroke against stored secret keys"""
     data = request.get_json() or {}
     current_position = data.get('position', 0)
     pressed_key = data.get('key', '').lower()
-    REAL_SECRET_KEY = "supercalifragilisticexpialidocious12345"
     
-    if current_position < len(REAL_SECRET_KEY):
-        expected_char = REAL_SECRET_KEY[current_position].lower()
-        if pressed_key == expected_char:
-            return jsonify({
-                "success": True,
-                "match": True,
-                "next_position": current_position + 1,
-                "is_complete": (current_position + 1) == len(REAL_SECRET_KEY)
-            })
-    return jsonify({"success": True, "match": False, "reset": True})
+    active_keys = get_active_secret_keys()
+    
+    if not active_keys:
+        active_keys = ["supercalifragilisticexpialidocious12345"]
+    
+    for secret_key in active_keys:
+        if current_position < len(secret_key):
+            expected_char = secret_key[current_position].lower()
+            
+            if pressed_key == expected_char:
+                return jsonify({
+                    "success": True,
+                    "match": True,
+                    "next_position": current_position + 1,
+                    "is_complete": (current_position + 1) == len(secret_key)
+                })
+    
+    return jsonify({
+        "success": True,
+        "match": False,
+        "reset": True
+    })
 
 @app.route('/api/complete-secret', methods=['POST'])
 def complete_secret():
+    """Complete the secret key verification and generate admin slug"""
     data = request.get_json() or {}
     secret = data.get('secret', '')
-    REAL_SECRET_KEY = "supercalifragilisticexpialidocious12345"
     
-    if secret.lower() == REAL_SECRET_KEY.lower():
+    secret_key = SecretKey.query.filter_by(key_string=secret, is_active=True).first()
+    
+    if secret_key and secret_key.is_valid():
         admin_slug = generate_admin_slug()
+        
         return jsonify({
-            "success": True,
+            "success": True, 
             "redirectTo": "/admin/{}".format(admin_slug)
         })
-    return jsonify({"success": False}), 403
+    else:
+        if secret == "supercalifragilisticexpialidocious12345":
+            admin_slug = generate_admin_slug()
+            
+            return jsonify({
+                "success": True, 
+                "redirectTo": "/admin/{}".format(admin_slug)
+            })
+        
+        return jsonify({"success": False}), 403
 
 # === ADMIN LOGIN ===
 
 @app.route('/admin/<slug>')
 def dynamic_admin_login(slug):
+    """Admin login page with one-time slug validation"""
+    # Validate the slug
     if not validate_admin_slug(slug):
+        # Destroy invalid slug
         destroy_admin_slug()
         abort(404)
+    
     return render_template('admin_login.html', slug=slug)
 
 @app.route('/api/admin-login', methods=['POST'])
 def admin_login():
+    """Login with username and password"""
     data = request.get_json() or {}
     username = data.get('username', '')
     password = data.get('password', '')
+    
+    print("Login attempt: username='{}'".format(username))
     
     admin = Admin.query.filter_by(username=username, is_active=True).first()
     
@@ -239,14 +378,18 @@ def admin_login():
         db.session.commit()
         
         mark_slug_used()
+        
         login_user(admin, remember=True)
         session['admin_username'] = admin.username
+        
+        print("Login successful for: {}".format(username))
         
         return jsonify({
             "success": True,
             "redirectTo": "/dashboard"
         })
     else:
+        print("Login failed for: {}".format(username))
         return jsonify({"success": False, "error": "Invalid credentials"}), 401
 
 # === ADMIN DASHBOARD ===
@@ -280,6 +423,7 @@ def admin_dashboard():
 @app.route('/admin/logout')
 @admin_required
 def admin_logout():
+    """Logout and destroy the admin slug"""
     admin_session = AdminSession.query.filter_by(
         admin_id=current_user.id
     ).order_by(AdminSession.login_time.desc()).first()
@@ -292,17 +436,20 @@ def admin_logout():
         db.session.commit()
     
     destroy_admin_slug()
+    
     logout_user()
     session.clear()
     return redirect('/')
 
+# === CATCH-ALL FOR ADMIN PATHS ===
 @app.route('/admin')
 @app.route('/admin/')
 @app.route('/admin/<path:path>')
 def admin_catch_all(path=None):
+    """Catch all admin paths and return 404"""
     abort(404)
 
-# === API ENDPOINTS ===
+# === PROJECT MANAGEMENT ===
 
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
@@ -318,6 +465,87 @@ def get_projects():
         'status': p.status
     } for p in projects])
 
+@app.route('/api/projects', methods=['POST'])
+@admin_required
+def create_project():
+    data = request.get_json() or {}
+    
+    project = Project(
+        title=data.get('title'),
+        description=data.get('description'),
+        github_url=data.get('github_url'),
+        live_url=data.get('live_url'),
+        image_url=data.get('image_url'),
+        category=data.get('category'),
+        status=data.get('status', 'in_progress'),
+        order=data.get('order', 0)
+    )
+    
+    db.session.add(project)
+    db.session.commit()
+    
+    return jsonify({"success": True, "id": project.id})
+
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+@admin_required
+def update_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    data = request.get_json() or {}
+    
+    project.title = data.get('title', project.title)
+    project.description = data.get('description', project.description)
+    project.github_url = data.get('github_url', project.github_url)
+    project.live_url = data.get('live_url', project.live_url)
+    project.image_url = data.get('image_url', project.image_url)
+    project.category = data.get('category', project.category)
+    project.status = data.get('status', project.status)
+    project.order = data.get('order', project.order)
+    project.updated_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({"success": True})
+
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+@admin_required
+def delete_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    db.session.delete(project)
+    db.session.commit()
+    
+    return jsonify({"success": True})
+
+# === ADMIN MANAGEMENT ===
+
+@app.route('/api/admins', methods=['GET'])
+@admin_required
+def get_admins():
+    admins = Admin.query.all()
+    return jsonify([{
+        'id': a.id,
+        'username': a.username,
+        'email': a.email,
+        'is_active': a.is_active,
+        'created_at': a.created_at.isoformat(),
+        'last_login': a.last_login.isoformat() if a.last_login else None
+    } for a in admins])
+
+@app.route('/api/admins', methods=['POST'])
+@admin_required
+def create_admin():
+    data = request.get_json() or {}
+    
+    admin = Admin(
+        username=data.get('username'),
+        email=data.get('email')
+    )
+    admin.set_password(data.get('password'))
+    
+    db.session.add(admin)
+    db.session.commit()
+    
+    return jsonify({"success": True, "id": admin.id})
+
+# === RUN THE APP ===
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
-EOF
